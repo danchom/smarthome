@@ -265,7 +265,7 @@ public abstract class AbstractModuleHandler implements ModuleHandler {
     @SuppressWarnings({ "rawtypes", "unchecked" })
     protected final Map<String, Object> getResolvedConfiguration(Map<String, ?> resolvedInputs) {
         Map resolvedConfiguration = new HashMap();
-        Map<String, Object> configuration = module.getConfiguration();
+        Map<String, ?> configuration = module.getConfiguration();
         if (configParametersMap != null) {
             for (Map.Entry<String, ConfigDescriptionParameter> entry : configParametersMap.entrySet()) {
                 String configName = entry.getKey();
