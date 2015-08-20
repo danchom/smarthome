@@ -37,10 +37,25 @@ public class RuleImpl extends Rule {
 
     private Map<String, Module> moduleMap;
 
-    public RuleImpl(List<Trigger> triggers, //
-            List<Condition> conditions, //
-            List<Action> actions, Set<ConfigDescriptionParameter> configDescriptions, //
-            Map<String, ?> configurations) {
+    /**
+     * @param ruleTemplateUID
+     * @param configurations
+     * @throws Exception
+     */
+    public RuleImpl(String ruleTemplateUID, Map<String, ?> configurations) {
+        super(ruleTemplateUID, configurations);
+    }
+
+    public RuleImpl(RuleTemplate template, Map<String, ?> configuration) {
+        this.triggers = createTrieggers(template.getModules(Trigger.class));
+        this.conditions = createConditions(template.getModules(Condition.class));
+        this.actions = createActions(template.getModules(Action.class));
+        this.configDescriptions = template.getConfigurationDescription();
+        setConfiguration(configuration);
+        // handleModuleConfigReferences(triggers, conditions, actions, configurations);
+    }
+
+    public RuleImpl(Rule rule, Set<ConfigDescriptionParameter> configDescriptions, Map<String, ?> configuration) {
 
         // TODO: I am not sure if this is the right way. This validation requires the module types to exist, which is ok
         // to ask for during execution, but not
@@ -49,31 +64,12 @@ public class RuleImpl extends Rule {
         // the rule must not be created if connections are incorrect
         // ConnectionValidator.validateConnections(Activator.moduleTypeRegistry, triggers, conditions, actions);
 
-        super(triggers, conditions, actions, configDescriptions, configurations);
-
-        handleModuleConfigReferences(triggers, conditions, actions, configurations);
-    }
-
-    /**
-     * @param ruleTemplateUID
-     * @param configurations
-     * @throws Exception
-     */
-    public RuleImpl(String ruleTemplateUID, Map<String, Object> configurations) {
-        super(ruleTemplateUID, configurations);
-        RuleTemplate template = (RuleTemplate) Activator.templateRegistry.get(ruleTemplateUID);
-        if (template == null) {
-            throw new IllegalArgumentException("Rule template '" + ruleTemplateUID + "' does not exist.");
-        }
-        this.triggers = template.getModules(Trigger.class);
-        this.conditions = template.getModules(Condition.class);
-        this.actions = template.getModules(Action.class);
-        configDescriptions = template.getConfigurationDescription();
-
-        // the rule must not be created if configuration is incorrect
-        validateConfiguration(configDescriptions, new HashMap<String, Object>(configurations));
-        this.configurations = configurations;
-        handleModuleConfigReferences(triggers, conditions, actions, configurations);
+        this.triggers = createTrieggers(rule.getModules(Trigger.class));
+        this.conditions = createConditions(rule.getModules(Condition.class));
+        this.actions = createActions(rule.getModules(Action.class));
+        this.configDescriptions = configDescriptions;
+        setConfiguration(configuration);
+        // handleModuleConfigReferences(triggers, conditions, actions, configurations);
     }
 
     /**
@@ -83,13 +79,36 @@ public class RuleImpl extends Rule {
      *            has to be created.
      */
     protected RuleImpl(RuleImpl rule) {
-        super(rule.getModules(Trigger.class), rule.getModules(Condition.class), rule.getModules(Action.class),
-                rule.getConfigurationDescriptions(), rule.getConfiguration());
-        uid = rule.getUID();
+        super(rule.getUID(), rule.getModules(Trigger.class), rule.getModules(Condition.class),
+                rule.getModules(Action.class), rule.getConfigurationDescriptions(), rule.getConfiguration());
         setName(rule.getName());
         setTags(rule.getTags());
         setDescription(rule.getDescription());
         // setEnabled(rule.isEnabled());
+    }
+
+    private List<Action> createActions(List<Action> actions) {
+        List<Action> res = new ArrayList<Action>();
+        for (Action action : actions) {
+            res.add(new ActionImpl(action));
+        }
+        return res;
+    }
+
+    private List<Condition> createConditions(List<Condition> conditions) {
+        List<Condition> res = new ArrayList<Condition>();
+        for (Condition condition : conditions) {
+            res.add(new ConditionImpl(condition));
+        }
+        return res;
+    }
+
+    private List<Trigger> createTrieggers(List<Trigger> triggers) {
+        List<Trigger> res = new ArrayList<Trigger>();
+        for (Trigger trigger : triggers) {
+            res.add(new TriggerImpl(trigger));
+        }
+        return res;
     }
 
     @Override
@@ -215,12 +234,10 @@ public class RuleImpl extends Rule {
     }
 
     /**
-     * @param configDescriptions
+     *
      * @param configurations
-     * @throws Exception
      */
-    private void validateConfiguration(Set<ConfigDescriptionParameter> configDescriptions,
-            Map<String, Object> configurations) {
+    private void validateConfiguration(Map<String, Object> configurations) {
         if (configurations == null || configurations.isEmpty()) {
             if (isOptionalConfig(configDescriptions)) {
                 return;
@@ -333,9 +350,10 @@ public class RuleImpl extends Rule {
         }
     }
 
-    private void handleModuleConfigReferences(List<? extends Module> triggers, List<? extends Module> conditions,
+    void handleModuleConfigReferences(List<? extends Module> triggers, List<? extends Module> conditions,
             List<? extends Module> actions, Map<String, ?> ruleConfiguration) {
         if (ruleConfiguration != null) {
+            validateConfiguration(new HashMap<String, Object>(ruleConfiguration));
             handleModuleConfigReferences0(triggers, ruleConfiguration);
             handleModuleConfigReferences0(conditions, ruleConfiguration);
             handleModuleConfigReferences0(actions, ruleConfiguration);
@@ -366,8 +384,7 @@ public class RuleImpl extends Rule {
     }
 
     public void setUID(String rUID) {
-        // TODO Auto-generated method stub
-
+        uid = rUID;
     }
 
     public List<Condition> getConditions() {

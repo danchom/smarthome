@@ -15,6 +15,7 @@ import java.util.Set;
 import org.eclipse.smarthome.automation.Rule;
 import org.eclipse.smarthome.automation.RuleRegistry;
 import org.eclipse.smarthome.automation.RuleStatus;
+import org.eclipse.smarthome.automation.template.RuleTemplate;
 import org.eclipse.smarthome.core.common.registry.AbstractRegistry;
 import org.eclipse.smarthome.core.common.registry.Provider;
 import org.eclipse.smarthome.core.storage.Storage;
@@ -51,7 +52,7 @@ public class RuleRegistryImpl extends AbstractRegistry<Rule, String>implements R
             try {
                 addIntoRuleEngine(rule);
             } catch (Exception e) {
-                logger.error("Can't add rule: " + rule.getUID() + " into rule enfine.", e);
+                logger.error("Can't add rule: " + rule.getUID() + " into rule engine.", e);
             }
 
         }
@@ -60,23 +61,44 @@ public class RuleRegistryImpl extends AbstractRegistry<Rule, String>implements R
 
     @Override
     public synchronized void add(Rule element) {
-        RuleImpl ruleWithId = addIntoRuleEngine(element);
-        super.add(ruleWithId);
+        addIntoRuleEngine(element);
+        super.add(element);
     }
 
-    private RuleImpl addIntoRuleEngine(Rule element) {
+    private void addIntoRuleEngine(Rule element) {
         RuleImpl ruleWithId;
+        boolean isDisabled = false;
+        String ruleTemplateUID = element.getRuleTemplateUID();
+        if (ruleTemplateUID != null) {
+            RuleTemplate template = (RuleTemplate) Activator.templateRegistry.get(ruleTemplateUID);
+            if (template == null) {
+                logger.debug(RuleEngine.LOG_HEADER, "Rule template '" + ruleTemplateUID + "' does not exist.");
+                ruleWithId = new RuleImpl(element.getRuleTemplateUID(), element.getConfiguration());
+                isDisabled = true;
+            } else {
+                ruleWithId = new RuleImpl(template, element.getConfiguration());
+                ruleWithId.handleModuleConfigReferences(ruleWithId.getTriggers(), ruleWithId.getConditions(),
+                        ruleWithId.getActions(), ruleWithId.getConfiguration());
+            }
+        } else {
+            ruleWithId = new RuleImpl(element, element.getConfigurationDescriptions(), element.getConfiguration());
+            ruleWithId.handleModuleConfigReferences(ruleWithId.getTriggers(), ruleWithId.getConditions(),
+                    ruleWithId.getActions(), ruleWithId.getConfiguration());
+        }
+        ruleWithId.setName(element.getName());
+        ruleWithId.setDescription(element.getDescription());
+        ruleWithId.setTags(element.getTags());
+        ruleWithId.setScopeIdentifier(ruleEngine.getScopeIdentifier());
         String rUID = element.getUID();
         if (rUID == null) {
-            ruleWithId = ruleEngine.addRule0(element, ruleEngine.getScopeIdentifier());
+            ruleWithId = ruleEngine.addRule0(ruleWithId, ruleEngine.getScopeIdentifier());
         } else {
-            ruleWithId = (RuleImpl) element;
+            ruleWithId.setUID(element.getUID());
         }
-        if (disabledRuledSet.contains(ruleWithId.getUID())) {
+        if (disabledRuledSet.contains(ruleWithId.getUID()) || isDisabled) {
             ruleEngine.setRuleEnabled(rUID, false);
         }
         ruleEngine.setRule(ruleWithId);
-        return ruleWithId;
     }
 
     @Override

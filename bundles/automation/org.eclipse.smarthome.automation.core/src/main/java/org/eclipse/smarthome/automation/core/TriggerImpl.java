@@ -30,6 +30,12 @@ public class TriggerImpl extends Trigger implements SourceModule {
         setDescription(trigger.getDescription());
     }
 
+    public TriggerImpl(Trigger trigger) {
+        super(trigger.getId(), trigger.getTypeUID(), trigger.getConfiguration());
+        setLabel(trigger.getLabel());
+        setDescription(trigger.getDescription());
+    }
+
     @Override
     public void setOutputs(Map<String, ?> outputs) {
         this.outputs = outputs;

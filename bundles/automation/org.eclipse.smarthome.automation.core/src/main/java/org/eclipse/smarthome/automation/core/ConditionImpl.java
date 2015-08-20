@@ -43,6 +43,12 @@ public class ConditionImpl extends Condition implements ConnectedModule {
         this.conditionHandler = conditionHandler;
     }
 
+    public ConditionImpl(Condition condition) {
+        super(condition.getId(), condition.getTypeUID(), condition.getConfiguration(), condition.getConnections());
+        setLabel(condition.getLabel());
+        setDescription(condition.getDescription());
+    }
+
     /**
      * Cloning constructor of {@link Condition} module. It is used to create a new {@link Condition} module base on
      * passed {@link Condition} module.
